@@ -1,10 +1,12 @@
 package huaminglin.btrace.callstack;
 
+import com.sun.btrace.AnyType;
 import com.sun.btrace.annotations.BTrace;
 import com.sun.btrace.annotations.Kind;
 import com.sun.btrace.annotations.Location;
 import com.sun.btrace.annotations.OnMethod;
 import com.sun.btrace.annotations.ProbeMethodName;
+import com.sun.btrace.annotations.Self;
 import com.sun.btrace.annotations.Where;
 
 import java.util.HashSet;
@@ -21,10 +23,20 @@ public class CallStackLifeCycleXml {
             location = @Location(value = Kind.ENTRY)
     )
     public static void onMethodEntry(
-            @ProbeMethodName(fqn = true) String pmn
+            @ProbeMethodName(fqn = true) String pmn,
+            @Self Object selfValue,
+            AnyType[] arguments
     ) {
         String classMethod = parseMethod(pmn);
         printline("<" + formatXmlElementName(classMethod) + " method=\"" + escapeXml(pmn) + "\">");
+        if (selfValue != null) {
+            printline("<this>" + selfValue.toString() + "</this>");
+        }
+        if (arguments != null) {
+            for (int i = 0; i < arguments.length; i++) {
+                printline("<argument>" + arguments[i].toString() + "</argument>");
+            }
+        }
     }
 
     @OnMethod(
