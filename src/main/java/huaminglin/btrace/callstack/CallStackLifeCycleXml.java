@@ -6,6 +6,7 @@ import com.sun.btrace.annotations.Kind;
 import com.sun.btrace.annotations.Location;
 import com.sun.btrace.annotations.OnMethod;
 import com.sun.btrace.annotations.ProbeMethodName;
+import com.sun.btrace.annotations.Return;
 import com.sun.btrace.annotations.Self;
 import com.sun.btrace.annotations.Where;
 
@@ -30,11 +31,11 @@ public class CallStackLifeCycleXml {
         String classMethod = parseMethod(pmn);
         printline("<" + formatXmlElementName(classMethod) + " method=\"" + escapeXml(pmn) + "\">");
         if (selfValue != null) {
-            printline("<this>" + selfValue.toString() + "</this>");
+            printline("  <this>" + selfValue.toString() + "</this>");
         }
         if (arguments != null) {
             for (int i = 0; i < arguments.length; i++) {
-                printline("<argument>" + arguments[i].toString() + "</argument>");
+                printline("  <argument>" + arguments[i].toString() + "</argument>");
             }
         }
     }
@@ -45,9 +46,24 @@ public class CallStackLifeCycleXml {
             location = @Location(value = Kind.RETURN)
     )
     public static void onMethodReturn(
-            @ProbeMethodName(fqn = true) String pmn
+            @ProbeMethodName(fqn = true) String pmn,
+            @Self Object selfValue,
+            @Return AnyType returnValue
+//            @Duration long duration // The following error happens if @Duration is enabled:
+// Exception in thread "main" java.lang.VerifyError: (class: huaminglin/btrace/callstack/demo/CallstackDemo, method: main signature: ([Ljava/lang/String;)V) Accessing value from uninitialized register pair 3/4
     ) {
         String classMethod = parseMethod(pmn);
+        if (returnValue != AnyType.VOID) {
+            if (returnValue == null) {
+                printline("  <return>null</return>");
+            } else {
+                printline("  <return>" + returnValue.toString() + "</return>");
+            }
+        }
+//        printline("  <duration>" + duration + "</duration>");
+        if (selfValue != null) {
+            printline("  <thisOnReturn>" + selfValue.toString() + "</thisOnReturn>");
+        }
         printline("</" + formatXmlElementName(classMethod) + ">");
     }
 
