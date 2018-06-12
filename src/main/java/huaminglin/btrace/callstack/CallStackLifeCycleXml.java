@@ -1,6 +1,5 @@
 package huaminglin.btrace.callstack;
 
-import com.sun.btrace.AnyType;
 import com.sun.btrace.annotations.BTrace;
 import com.sun.btrace.annotations.Kind;
 import com.sun.btrace.annotations.Location;
@@ -8,7 +7,10 @@ import com.sun.btrace.annotations.OnMethod;
 import com.sun.btrace.annotations.ProbeMethodName;
 import com.sun.btrace.annotations.Where;
 
-import static com.sun.btrace.BTraceUtils.println;
+import java.util.HashSet;
+import java.util.Set;
+
+import com.sun.btrace.BTraceUtils;
 
 @BTrace(unsafe = true)
 public class CallStackLifeCycleXml {
@@ -22,7 +24,7 @@ public class CallStackLifeCycleXml {
             @ProbeMethodName(fqn = true) String pmn
     ) {
         String classMethod = parseMethod(pmn);
-        println(getIndentation() + "<" + formatXmlElementName(classMethod) + " method=\"" + pmn + "\">");
+        printline("<" + formatXmlElementName(classMethod) + " method=\"" + escapeXml(pmn) + "\">");
     }
 
     @OnMethod(
@@ -34,7 +36,7 @@ public class CallStackLifeCycleXml {
             @ProbeMethodName(fqn = true) String pmn
     ) {
         String classMethod = parseMethod(pmn);
-        println(getIndentation() + "</" + formatXmlElementName(classMethod) + ">");
+        printline("</" + formatXmlElementName(classMethod) + ">");
     }
 
     @OnMethod(
@@ -46,12 +48,11 @@ public class CallStackLifeCycleXml {
             @ProbeMethodName(fqn = true) String pmn
     ) {
         String classMethod = parseMethod(pmn);
-        println(getIndentation() + "  <exception/>");
-        println(getIndentation() + "</" + formatXmlElementName(classMethod) + ">");
+        printline("  <exception/>");
+        printline("</" + formatXmlElementName(classMethod) + ">");
     }
 
-    private static String getIndentation() {
-        Thread thread = Thread.currentThread();
+    private static String getIndentation(Thread thread) {
         int length = getCallStackDepth();
         StringBuilder result = new StringBuilder();
         result.append(thread.getName() + "-" + thread.getId());
@@ -83,4 +84,21 @@ public class CallStackLifeCycleXml {
     private static String formatXmlElementName(String name) {
         return name.replaceAll("[^-a-zA-Z0-9_.]", "_");
     }
+
+    private static String escapeXml(String value) {
+        return value.replaceAll("&", "&amp;").replaceAll(">", "&gt;").replaceAll("<", "&lt;").replaceAll("\"", "&quot;").replaceAll("'", "&apos;");
+    }
+
+    private static void printline(String line) {
+        Thread thread = Thread.currentThread();
+        String indentation = getIndentation(thread);
+        if (!THREADS.contains(thread)) {
+            THREADS.add(thread);
+            // Add thread as root element. XML document requires a single root element.
+            BTraceUtils.println(indentation + "<thread>");
+        }
+        BTraceUtils.println(indentation + line);
+    }
+
+    private static Set<Thread> THREADS = new HashSet();
 }
