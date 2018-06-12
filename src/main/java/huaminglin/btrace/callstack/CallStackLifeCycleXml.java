@@ -2,6 +2,7 @@ package huaminglin.btrace.callstack;
 
 import com.sun.btrace.AnyType;
 import com.sun.btrace.annotations.BTrace;
+import com.sun.btrace.annotations.Duration;
 import com.sun.btrace.annotations.Kind;
 import com.sun.btrace.annotations.Location;
 import com.sun.btrace.annotations.OnMethod;
@@ -10,6 +11,8 @@ import com.sun.btrace.annotations.Return;
 import com.sun.btrace.annotations.Self;
 import com.sun.btrace.annotations.Where;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -73,10 +76,21 @@ public class CallStackLifeCycleXml {
             location = @Location(value = Kind.ERROR, where = Where.BEFORE)
     )
     public static void onMethodError(
-            @ProbeMethodName(fqn = true) String pmn
+            @ProbeMethodName(fqn = true) String pmn,
+            @Self Object selfValue,
+            Throwable throwable,
+            @Duration long duration
     ) {
         String classMethod = parseMethod(pmn);
-        printline("  <exception/>");
+        printline("  <exception>" + throwable + "</exception>");
+        if (throwable != null && !EXCEPTION_STACKTRACES.contains(throwable)) {
+            EXCEPTION_STACKTRACES.add(throwable);
+            printline("  <stacktrace>" + LINE_SEPARATOR + stackTraceStr(throwable) + "</stacktrace>");
+        }
+        if (selfValue != null) {
+            printline("  <thisOnException>" + selfValue.toString() + "</thisOnException>");
+        }
+        printline("  <duration>" + duration + "</duration>");
         printline("</" + formatXmlElementName(classMethod) + ">");
     }
 
@@ -125,8 +139,20 @@ public class CallStackLifeCycleXml {
             // Add thread as root element. XML document requires a single root element.
             BTraceUtils.println(indentation + "<thread>");
         }
-        BTraceUtils.println(indentation + line);
+        String[] lines = line.split("\n");
+        for (int i = 0; i < lines.length; i++) {
+            BTraceUtils.println(indentation + lines[i]);
+        }
+    }
+
+    private static String stackTraceStr(Throwable throwable) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        throwable.printStackTrace(pw);
+        return sw.toString();
     }
 
     private static Set<Thread> THREADS = new HashSet();
+    private static Set<Throwable> EXCEPTION_STACKTRACES = new HashSet();
+    private static final String LINE_SEPARATOR = System.getProperty("line.separator");
 }
