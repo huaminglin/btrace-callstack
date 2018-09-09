@@ -14,6 +14,7 @@ import com.sun.btrace.annotations.Where;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import com.sun.btrace.BTraceUtils;
@@ -23,6 +24,53 @@ public class CallStackLifeCycleXml {
     private static String getObjectString(Object object) {
         if (object == null) {
             return "null";
+        }
+        if (object instanceof Thread) {
+            Thread thread = (Thread) object;
+            String value = "[" + thread.getId() + ", " + thread.getName() + ", " + thread.getPriority() + "]";
+            if (thread.getThreadGroup() == null) {
+                return value;
+            }
+            return value + " / " + getObjectString(thread.getThreadGroup());
+        }
+        if (object instanceof ThreadGroup) {
+            ThreadGroup group = (ThreadGroup) object;
+            return "[" + group.getName() + ", " + group.getMaxPriority() + "]";
+        }
+        if (object.getClass().isArray()) {
+            StringBuilder builder = new StringBuilder();
+            builder.append('[');
+            int length = java.lang.reflect.Array.getLength(object);
+            for(int i = 0; i < length; i++) {
+                if (i > 0) {
+                    builder.append(", ");
+                }
+                builder.append("\"");
+                builder.append(getObjectString(java.lang.reflect.Array.get(object, i)));
+                builder.append("\"");
+            }
+            builder.append(']');
+            return builder.toString();
+        }
+        if (object instanceof java.util.Map) {
+            java.util.Map<Object, Object> map = (java.util.Map) object;
+            StringBuilder builder = new StringBuilder();
+            builder.append('{');
+            boolean first = true;
+            for (Map.Entry entry : map.entrySet()) {
+                if (first) {
+                    first = false;
+                } else {
+                    builder.append(", ");
+                }
+                builder.append("\"");
+                builder.append(getObjectString(entry.getKey()));
+                builder.append("\": \"");
+                builder.append(getObjectString(entry.getValue()));
+                builder.append("\"");
+            }
+            builder.append('}');
+            return builder.toString();
         }
         return object.toString();
     }
@@ -139,6 +187,7 @@ public class CallStackLifeCycleXml {
             THREADS.add(thread);
             // Add thread as root element. XML document requires a single root element.
             BTraceUtils.println(getIndentation(thread, -1) + "<thread>");
+            BTraceUtils.println(getIndentation(thread, 0) + "<meta>" + getObjectString(thread) + "</meta>");
         }
         String indentation = getIndentation(thread, extraIndentation);
         String[] lines = line.split("\n");
