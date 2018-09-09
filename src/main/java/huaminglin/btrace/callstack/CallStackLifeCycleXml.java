@@ -20,6 +20,12 @@ import com.sun.btrace.BTraceUtils;
 
 @BTrace(unsafe = true)
 public class CallStackLifeCycleXml {
+    private static String getObjectString(Object object) {
+        if (object == null) {
+            return "null";
+        }
+        return object.toString();
+    }
 
     @OnMethod(
             clazz = "/huaminglin.btrace.callstack.*/",
@@ -32,13 +38,13 @@ public class CallStackLifeCycleXml {
             AnyType[] arguments
     ) {
         String classMethod = parseMethod(pmn);
-        printline("<" + formatXmlElementName(classMethod) + " method=\"" + escapeXml(pmn) + "\">");
+        printline("<" + formatXmlElementName(classMethod) + " method=\"" + escapeXml(pmn) + "\">", 0);
         if (selfValue != null) {
-            printline("  <this>" + selfValue.toString() + "</this>");
+            printline("<this>" + selfValue.toString() + "</this>", 1);
         }
         if (arguments != null) {
             for (int i = 0; i < arguments.length; i++) {
-                printline("  <argument>" + arguments[i].toString() + "</argument>");
+                printline("<argument>" + getObjectString(arguments[i]) + "</argument>", 1);
             }
         }
     }
@@ -57,17 +63,13 @@ public class CallStackLifeCycleXml {
     ) {
         String classMethod = parseMethod(pmn);
         if (returnValue != AnyType.VOID) {
-            if (returnValue == null) {
-                printline("  <return>null</return>");
-            } else {
-                printline("  <return>" + returnValue.toString() + "</return>");
-            }
+            printline("<return>" + getObjectString(returnValue) + "</return>", 1);
         }
 //        printline("  <duration>" + duration + "</duration>");
         if (selfValue != null) {
-            printline("  <thisOnReturn>" + selfValue.toString() + "</thisOnReturn>");
+            printline("<thisOnReturn>" + getObjectString(selfValue) + "</thisOnReturn>", 1);
         }
-        printline("</" + formatXmlElementName(classMethod) + ">");
+        printline("</" + formatXmlElementName(classMethod) + ">", 0);
     }
 
     @OnMethod(
@@ -82,24 +84,24 @@ public class CallStackLifeCycleXml {
             @Duration long duration
     ) {
         String classMethod = parseMethod(pmn);
-        printline("  <exception>" + throwable + "</exception>");
+        printline("<exception>" + throwable + "</exception>", 1);
         if (throwable != null && !EXCEPTION_STACKTRACES.contains(throwable)) {
             EXCEPTION_STACKTRACES.add(throwable);
-            printline("  <stacktrace>" + LINE_SEPARATOR + stackTraceStr(throwable) + "</stacktrace>");
+            printline("<stacktrace>" + LINE_SEPARATOR + stackTraceStr(throwable) + "</stacktrace>", 1);
         }
         if (selfValue != null) {
-            printline("  <thisOnException>" + selfValue.toString() + "</thisOnException>");
+            printline("<thisOnException>" + getObjectString(selfValue) + "</thisOnException>", 1);
         }
-        printline("  <duration>" + duration + "</duration>");
-        printline("</" + formatXmlElementName(classMethod) + ">");
+        printline("<duration>" + duration + "</duration>", 1);
+        printline("</" + formatXmlElementName(classMethod) + ">", 0);
     }
 
-    private static String getIndentation(Thread thread) {
-        int length = getCallStackDepth();
+    private static String getIndentation(Thread thread, int extraIndentation) {
+        int length = getCallStackDepth() + extraIndentation;
         StringBuilder result = new StringBuilder();
         result.append(thread.getName() + "-" + thread.getId());
         for (int i = 0; i < length; i++) {
-            result.append("  ");
+            result.append(ONE_IDENTATION);
         }
         return result.toString();
     }
@@ -131,14 +133,14 @@ public class CallStackLifeCycleXml {
         return value.replaceAll("&", "&amp;").replaceAll(">", "&gt;").replaceAll("<", "&lt;").replaceAll("\"", "&quot;").replaceAll("'", "&apos;");
     }
 
-    private static void printline(String line) {
+    private static void printline(String line, int extraIndentation) {
         Thread thread = Thread.currentThread();
-        String indentation = getIndentation(thread);
         if (!THREADS.contains(thread)) {
             THREADS.add(thread);
             // Add thread as root element. XML document requires a single root element.
-            BTraceUtils.println(indentation + "<thread>");
+            BTraceUtils.println(getIndentation(thread, -1) + "<thread>");
         }
+        String indentation = getIndentation(thread, extraIndentation);
         String[] lines = line.split("\n");
         for (int i = 0; i < lines.length; i++) {
             BTraceUtils.println(indentation + lines[i]);
@@ -152,7 +154,8 @@ public class CallStackLifeCycleXml {
         return sw.toString();
     }
 
-    private static Set<Thread> THREADS = new HashSet();
-    private static Set<Throwable> EXCEPTION_STACKTRACES = new HashSet();
+    private static Set<Thread> THREADS = new HashSet<Thread>();
+    private static Set<Throwable> EXCEPTION_STACKTRACES = new HashSet<Throwable>();
     private static final String LINE_SEPARATOR = System.getProperty("line.separator");
+    private static final String ONE_IDENTATION = "    ";
 }
